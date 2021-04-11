@@ -16,7 +16,7 @@ with tikhonov regularization for nmr data analysis
 
 import numpy as np
 import numpy.matlib as mat
-import cmath 
+import math 
 from scipy.optimize import nnls
 
 def T2NNLS(d,t,noise,T2,eps, winsize):
@@ -29,6 +29,7 @@ def T2NNLS(d,t,noise,T2,eps, winsize):
         noise: noise vector corresponding to t and d
         T2: vector of available T2 values to which the distribution is fit
         eps: regularization factor
+        winsize: size of moving average window
 
     Returns: 
         m: inverted model 1, length(T2)+1 with m(length(T2)+1) = baseline offset 
@@ -42,8 +43,8 @@ def T2NNLS(d,t,noise,T2,eps, winsize):
     
     ## clip decayed data by finding when moving average reaches some fraction of initial signal 
     # winsize = 100 
-    filt = 1/winsize*np.ones(winsize)
-    filt_d_conv = np.where(np.convolve(filt,d) < d[0]/1e5)[0]
+    filt = 1/winsize*np.ones(winsize) #create movinng average filter
+    filt_d_conv = np.where(np.convolve(filt,d) < d[0]/1e5)[0] #find when mov avg < 1e-5 of d(1)
     if filt_d_conv.size > 0:
         enddecay = min(filt_d_conv) 
     else:
@@ -51,41 +52,39 @@ def T2NNLS(d,t,noise,T2,eps, winsize):
     if enddecay < 1 or enddecay > len(d): enddecay = len(d)
     if enddecay <= winsize:  enddecay = len(d)
     
-    d = d[0:enddecay]
-    t = t[0:enddecay]
-    noise = noise[0:enddecay]
+    d = d[0:enddecay] # trim d
+    t = t[0:enddecay] # trim t
+    noise = noise[0:enddecay] # trim noise
     
     if enddecay >= 1000:
-        tlog_ideal = np.logspace(cmath.log10(t[0]),cmath.log10(t[len(t) - 1]), len(t)/n, endpoint = True, dtype = float) #the ideal log spacing of data
+        tlog_ideal = np.logspace(math.log10(t[0]), math.log10(t[len(t) - 1]), num = math.floor(len(t)/n), endpoint = True, dtype = float) #the ideal log spacing of data (small to large)
         # tlog_ideal = tlog_ideal[::-1] # reverse order so goes from small to large
         tempt = np.zeros(len(tlog_ideal))
         tempd = np.zeros(len(tlog_ideal))
         tempstdev = np.zeros(len(tlog_ideal))
-#        tempd = d[0]
-#        tempstdev = stdev
         tempt[0] = t[0]
         tempd[0] = d[0]
         tempstdev[0] = stdev
         
         lastindex = 0
-        for i in range(1,len(tlog_ideal)):
-            cindex = np.argmin(np.abs(t - tlog_ideal[i]))
-            if cindex == lastindex:
+        for i in range(1,len(tlog_ideal)): # for each ideal time point
+            cindex = np.argmin(np.abs(t - tlog_ideal[i])) # find closest datum to ideal point
+            if cindex == lastindex: # if the closest point is the same as before assign NaN
                 tempt[i] = np.nan
                 tempd[i] = np.nan
                 tempstdev[i] = np.nan
-            else:
-                tempt[i] = np.mean(t[lastindex + 1:cindex + 1])
+            else: # if closest point is unique
+                tempt[i] = np.mean(t[lastindex + 1:cindex + 1]) # resampled binned = mean for pts between last datum and closest datum
                 tempd[i] = np.mean(d[lastindex + 1:cindex + 1])
                 tempstdev[i] = stdev/np.sqrt(cindex - lastindex)
             lastindex = cindex 
             
-        nonnan = np.where(~np.isnan(tempt))[0]
+        nonnan = np.where(~np.isnan(tempt))[0] # clear out all points in resampled data which are NaN
         rt = tempt[nonnan]
         rd = tempd[nonnan]
         resampleddata = rd
         rstdev = tempstdev[nonnan]
-        rd = rd/rstdev
+        rd = rd/rstdev # weight the data by their standard deviation
         
     else:
         rt = t
@@ -93,22 +92,24 @@ def T2NNLS(d,t,noise,T2,eps, winsize):
         resampleddata = d
         rd = d/rstdev
         
-    ##-------------------------- setup kernel matrix (Y)
-    G = createKernelMatrix(rt, T2)
-    Lwoweightreg = createKernelMatrix(rt, T2)
-    
-    G = G/rstdev[:, None] # or rstdev[:,np.newaxis] also works            
-                   
-    ##-------------------------- creat regularization Matrix (Y)
-    N = len(T2) # number of columns in G
+    ##-------------------------- setup kernel matrix 
+    tempMatrix = createKernelMatrix(rt, T2)
+    G = np.ones((len(rt),len(T2)+1))
+    Lwoweightreg = np.ones((len(rt),len(T2)+1))
+    Lwoweightreg[:, :-1] = tempMatrix 
+    G[:, :-1] = tempMatrix 
+    G = G/rstdev[:, None] # or rstdev[:,np.newaxis] also works   
+                       
+    ##-------------------------- creat regularization Matrix 
+    N = len(T2) + 1 # number of columns in G
     L_second = second_order_Tikhonov_regularization(N)
 
     # Lreg: column array [G  lambda*L_2] 
     # lsq_rd: column array [d  0]
-    Lreg = np.vstack((G, eps*L_second))                           
+    Lreg = np.vstack((G, eps*L_second)) # append the regularization matrix to G                       
     lsq_rd = np.append(rd, np.zeros(N))  
      
-    m, rnorm = nnls(Lreg, lsq_rd)
+    m, rnorm = nnls(Lreg, lsq_rd) # inversion using non-negative least-squares
     
     dsyn = np.zeros((len(rt),3))
     r =np.zeros(2)
@@ -120,7 +121,7 @@ def T2NNLS(d,t,noise,T2,eps, winsize):
     r[0] = np.linalg.norm(dsyn[:,2]) # residual norm
    # r[1] = np.linalg.norm(rstdev) #data tol
     r[1] = np.linalg.norm(m)# model norm
-    return (m,r,dsyn,rnorm)
+    return (m,r,dsyn)
 
 
 def second_order_Tikhonov_regularization(N):
@@ -151,7 +152,7 @@ def second_order_Tikhonov_regularization(N):
                 np.eye(N, N, k=1))
     return L_second
 
-def createKernelMatrix(t, T):
+def createKernelMatrix(t, T2):
     """
     Create kernel matrix using the signal time vector't' and the relaxation time vector 'T' 
 
@@ -159,7 +160,7 @@ def createKernelMatrix(t, T):
     ----------
     t : 1-D array(M)
         length of the time vector
-    T : 1-D array(N)
+    T2 : 1-D array(N)
         length of the relaxation time vector
 
     Returns
@@ -169,11 +170,12 @@ def createKernelMatrix(t, T):
 
     """    
  
-    G = np.zeros((len(t),len(T)))    
+    G = np.zeros((len(t),len(T2)))  
     
-    tr = mat.repmat(t[:,np.newaxis], 1, len(T))
-    Tr = mat.repmat(T[np.newaxis,:], len(t), 1) # len(t) * len(T)
-
+    tr = mat.repmat(t[:,np.newaxis], 1, len(T2))
+    Tr = mat.repmat(T2[np.newaxis,:], len(t), 1) # len(t) * len(T)
     G = np.exp(-tr/Tr)
-     
+#     for i in range(len(G)):
+#         G[i,:] = G[i, :]/std[i]   
+    
     return G
