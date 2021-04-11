@@ -9,7 +9,7 @@ import numpy as np
 
 def getT2LogMean(T2, T2_dist):
     """    
-    Calculates the T2 logmean value out of a relaxation time distribution
+    Calculates the T2 log-mean value out of a relaxation time distribution
     
     Parameters
     ----------

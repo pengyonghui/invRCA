@@ -2,13 +2,22 @@
 
 import numpy as np
 
-def getLambdaFromRMSE(epsilon, rmse):
-    """
-    Input:
-    epsilon: range of lambda values
-    rmse: corresponding rmse values
-    output:
-    index: index of optimal lambda
+def getLambdaFromRMSE(epsilon, rmse):    
+    """    
+    Calculates the lambda value (smooth constraint)
+    
+    Parameters
+    ----------
+    lambda/epsilon : list array
+        a list of different lambda values
+    rmse : list array
+        corresponding rmse values
+
+    Returns
+    -------
+    index : a num value
+        index of optimal lambda
+
     """
     epsilon = np.array(epsilon)
     rmse = np.array(rmse)
