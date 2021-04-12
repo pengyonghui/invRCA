@@ -34,7 +34,7 @@ def RawNMR(df,ax):
 
 if __name__ == "__main__":       
     fileDir = 'D:/Github/invRCA/example-data/'
-    sampleName = 'B4_1_A'
+    sampleName = 'B41_A'
     csvFile = 'Group1/T2CPMG_200/1/data.csv'
     dataDir = os.path.join(fileDir, sampleName, csvFile) 
     df = pd.read_csv(dataDir, sep = ',',header = None)  
