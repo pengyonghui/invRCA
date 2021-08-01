@@ -11,35 +11,8 @@ from getLambdaFromRMSE import getLambdaFromRMSE
 from pltLcurve import pltLambdaRMS, pltLcurve
 from pltRTD import pltT2dist
 
-def RawNMR(df,ax):    
-    temp_df = np.array(df)
-    time = temp_df[:,0]/1000
-    data = temp_df[:,1]
-    noise = temp_df[:,2]
-    
-    ax.plot(time,noise,color = 'gray', label = 'Noise')
-    ax.plot(time,data, color = 'blue', label = 'NMR signal')
-
-    x = data
-    y = noise
-    z = data + 1j*noise
-
-    temp_zphase = np.angle(z)
-    ztheta = np.mean(temp_zphase[0:19])
-    z = z*np.exp(-1j*ztheta)
-    noise = z.imag
-    data = z.real 
-    
-    return time, data, noise
 
 if __name__ == "__main__":       
-    fileDir = 'D:/Github/invRCA/example-data/'
-    sampleName = 'B41_A'
-    csvFile = 'Group1/T2CPMG_200/1/data.csv'
-    dataDir = os.path.join(fileDir, sampleName, csvFile) 
-    df = pd.read_csv(dataDir, sep = ',',header = None)  
-    print("##########")
-    print('importing data of :', sampleName)  
     
     fig = plt.figure(figsize = (10, 10))
     ax0 = fig.add_subplot(211)  

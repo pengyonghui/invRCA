@@ -2,8 +2,8 @@
 
 from matplotlib import pyplot as plt
 
-def pltLambdaRMS(lambDa, rmse, index, ax):
-    ax.semilogx(lambDa,rmse,'o-')
+def plt_lambda_rmse(lambDa, rmse, index, ax):
+    ax.semilogx(lambDa, rmse,'o-')
     ax.semilogx(lambDa[index], rmse[index],'r+')
     
     print("The chosen lambda is ", lambDa[index])
@@ -15,8 +15,8 @@ def pltLambdaRMS(lambDa, rmse, index, ax):
     ax.set_xlabel('Regularization parameter $\lambda$')
     ax.set_ylabel('Residual norm $||Gm-d||_2$')
     
-def pltLcurve(rmse, modelnorm, index, ax):
-    ax.plot(rmse,modelnorm,'o-')
+def plt_rmse_model_norm(rmse, modelnorm, index, ax):
+    ax.plot(rmse, modelnorm,'o-')
     ax.plot(rmse[index], modelnorm[index],'r+')
 
     ax.grid(True, which='both')

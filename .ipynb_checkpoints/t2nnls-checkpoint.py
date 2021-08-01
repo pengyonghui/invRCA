@@ -16,19 +16,19 @@ import numpy as np
 import math 
 from scipy.optimize import nnls
 
-def T2NNLS(d,t,noise,T2,eps, winsize):
+def T2NNLS(data,time,noise,T2,eps, winsize):
     """   
     Input:
-    d: data vector corresponding to t, NO time ZERO allowed!!
-    t: time vector corresponding to d
-    noise: noise vector corresponding to t and d
+    data: data vector corresponding to 'time', NO time ZERO allowed!!
+    time: time vector corresponding to 'data'
+    noise: noise vector corresponding to 'time' and 'data'
     T2: vector of available T2 values to which the distribution is fit
     eps: regularization factor
     winsize: the size to clip the data
     
     Output:
     m: inverted model 1, length(T2)+1 with m(length(T2)+1) = baseline offset 
-    dsyn:  dysn(:,0) resampled t , dysn(:,1) modeled data M(t), and dysn(:,2) resampled data
+    dsyn:  dysn(:,0) resampled time , dysn(:,1) modeled data M(time), and dysn(:,2) resampled data
     r: reidual norm and data tol r(0) = residual norm; r(1) = model norm
 
     """
@@ -39,64 +39,66 @@ def T2NNLS(d,t,noise,T2,eps, winsize):
     ## clip decayed data by finding when moving average reaches some fraction of initial signal 
     # winsize = 100 
     filt = 1/winsize*np.ones(winsize)
-    filt_d_conv = np.where(np.convolve(filt,d) < d[0]/1e5)[0]
+    filt_d_conv = np.where(np.convolve(filt,data) < data[0]/1e5)[0]
     if filt_d_conv.size > 0:
-        enddecay = min(filt_d_conv) 
+        end_decay = min(filt_d_conv) 
     else:
-        enddecay = 0
-    if enddecay < 1 or enddecay > len(d): enddecay = len(d)
-    if enddecay <= winsize:  enddecay = len(d)
+        end_decay = 0
+    if end_decay < 1 or end_decay > len(data): end_decay = len(data)
+    if end_decay <= winsize:  end_decay = len(data)
     
-    d = d[0:enddecay]
-    t = t[0:enddecay]
-    noise = noise[0:enddecay]
+    data = data[0:end_decay]
+    time = time[0:end_decay]
+    noise = noise[0:end_decay]
     
-    if enddecay >= 1000:
-        tlog_ideal = np.logspace(math.log10(t[0]),math.log10(t[len(t) - 1]), num = math.floor(len(t)/n), endpoint = True,dtype = float) #the ideal log spacing of data
-        # tlog_ideal = tlog_ideal[::-1] # reverse order so goes from small to large
-        tempt = np.zeros(len(tlog_ideal))
-        tempd = np.zeros(len(tlog_ideal))
-        tempstdev = np.zeros(len(tlog_ideal))
-#        tempd = d[0]
-#        tempstdev = stdev
-        tempt[0] = t[0]
-        tempd[0] = d[0]
-        tempstdev[0] = stdev
+    if end_decay >= 1000:
+        #the ideal log spacing of data
+        time_log_ideal = np.logspace(math.log10(time[0]),math.log10(time[-1]), 
+                                num = math.floor(len(time)/n), endpoint = True,dtype = float) 
+
+        # time_log_ideal = time_log_ideal[::-1] 
+        temp_time = np.zeros(len(time_log_ideal))
+        temp_data = np.zeros(len(time_log_ideal))
+        temp_stdev = np.zeros(len(time_log_ideal))
+#        temp_data = data[0]
+#        temp_stdev = stdev
+        temp_time[0] = time[0]
+        temp_data[0] = data[0]
+        temp_stdev[0] = stdev
         
         lastindex = 0
-        for i in range(1,len(tlog_ideal)):
-            cindex = np.argmin(np.abs(t - tlog_ideal[i]))
+        for i in range(1,len(time_log_ideal)):
+            cindex = np.argmin(np.abs(time - time_log_ideal[i]))
             if cindex == lastindex:
-                tempt[i] = np.nan
-                tempd[i] = np.nan
-                tempstdev[i] = np.nan
+                temp_time[i] = np.nan
+                temp_data[i] = np.nan
+                temp_stdev[i] = np.nan
             else:
-                tempt[i] = np.mean(t[lastindex + 1:cindex + 1])
-                tempd[i] = np.mean(d[lastindex + 1:cindex + 1])
-                tempstdev[i] = stdev/np.sqrt(cindex - lastindex)
+                temp_time[i] = np.mean(time[lastindex + 1:cindex + 1])
+                temp_data[i] = np.mean(data[lastindex + 1:cindex + 1])
+                temp_stdev[i] = stdev/np.sqrt(cindex - lastindex)
             lastindex = cindex 
             
-        nonnan = np.where(~np.isnan(tempt))[0]
-        rt = tempt[nonnan]
-        rd = tempd[nonnan]
-        resampleddata = rd
-        rstdev = tempstdev[nonnan]
-        rd = rd/rstdev
+        nonnan = np.where(~np.isnan(temp_time))[0]
+        resampled_time = temp_time[nonnan]
+        reampled_data_nonweighted = temp_data[nonnan]
+        rstdev = temp_stdev[nonnan]
+        resampled_data_weighted = reampled_data_nonweighted/rstdev
         
     else:
-        rt = t
-        rstdev = stdev*np.ones(len(d))
-        resampleddata = d
-        rd = d/rstdev
+        resampled_time = time
+        rstdev = stdev*np.ones(len(data))
+        reampled_data_nonweighted = data
+        resampled_data_weighted = data/rstdev
         
     ##-------------------------- setup kernel matrix (Y)
-    G = np.zeros((len(rt),len(T2) + 1))
-    Lwoweightreg = np.zeros((len(rt), len(T2) + 1))  
+    G = np.zeros((len(resampled_time),len(T2) + 1))
+    Lwoweightreg = np.zeros((len(resampled_time), len(T2) + 1))  
 
-    for i_Lindex in range(len(rt)):
+    for i_Lindex in range(len(resampled_time)):
         for j_Lindex in range(len(T2)):
-            Lwoweightreg[i_Lindex,j_Lindex] = np.exp(-rt[i_Lindex]/T2[j_Lindex])
-            G[i_Lindex,j_Lindex] = np.exp(-rt[i_Lindex]/T2[j_Lindex])/rstdev[i_Lindex]
+            Lwoweightreg[i_Lindex,j_Lindex] = np.exp(-resampled_time[i_Lindex]/T2[j_Lindex])
+            G[i_Lindex,j_Lindex] = np.exp(-resampled_time[i_Lindex]/T2[j_Lindex])/rstdev[i_Lindex]
             
         Lwoweightreg[i_Lindex, len(T2)] = 1
         G[i_Lindex, len(T2)] = 1/rstdev[i_Lindex]
@@ -110,19 +112,20 @@ def T2NNLS(d,t,noise,T2,eps, winsize):
 
     Lreg = np.vstack((G, eps*reg))                           
     ## non-negative lsq inversion
-    lsq_rd = np.append(rd, np.zeros(k)) 
+    lsq_rd = np.append(resampled_data_weighted, np.zeros(k)) 
    
     m, rnorm = nnls(Lreg, lsq_rd)
     
-    dsyn = np.zeros((len(rt),3))
+    dsyn = np.zeros((len(resampled_time),3))
     r =np.zeros(2)
 #    
-    dsyn[:,0] = rt    # resampled time
-    dsyn[:,1] = np.dot(Lwoweightreg, m) # modeled data
-    dsyn[:,2] = resampleddata# 
-   # dsyn[:,2] = np.subtract(resampleddata, dsyn[:,1])# residuals    
-   # r[0] = np.linalg.norm(np.subtract(resampleddata, dsyn[:,1])) # residual norm
+    dsyn[:,0] = resampled_time    # resampled time
+    dsyn[:,1] = np.dot(Lwoweightreg, m) # fitted data
+    dsyn[:,2] = reampled_data_nonweighted# resampled data
+   # dsyn[:,2] = np.subtract(reampled_data_nonweighted, dsyn[:,1])# residuals 
+    # residual_norm = np.dot(G, m)
+    r[0] = np.linalg.norm(np.subtract(dsyn[:,2], dsyn[:,1])) # residual norm
    # r[1] = np.linalg.norm(rstdev) #data tol
-    r[0] = rnorm
+    #r[0] = rnorm
     r[1] = np.linalg.norm(m)# model norm
     return (m, r, dsyn, rnorm)
