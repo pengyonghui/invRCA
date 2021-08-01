@@ -1,6 +1,7 @@
 # invRCA
-A python package to process NMR lab data measured using 2-MHz Rock Core Analyzer
+A python package for analyzing NMR laboratory data measured from the Magritek 2MHz Rock Core Analyzer. It allows users to import the raw data, and to view and save the outputs after data inversion
 
-- how to use
-1. Run through the main entrance file - invRCA.py to see results of data in the example-data file (change the directory accordingly)
-2. or Run invRCA.ipyb in Jupyter for interactive plots using the data from the example-data file.
+**How to use**
+
+1. Run through the main entrance file - MainGui.py
+2. or Run invRCA.ipyb in Jupyter for interactive plots using the data from the example-data file (remember to change the directory accordingly).
