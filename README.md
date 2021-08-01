@@ -5,3 +5,7 @@ A python package for analyzing NMR laboratory data measured from the Magritek 2M
 
 1. Run through the main entrance file - MainGui.py
 2. or Run invRCA.ipyb in Jupyter for interactive plots using the data from the example-data file (remember to change the directory accordingly).
+
+**GUI screenshot**
+
+<img src="gui-screenshot/gui-inv.jpg" width="600">
