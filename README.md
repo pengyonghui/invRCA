@@ -8,4 +8,6 @@ A python package for analyzing NMR laboratory data measured from the Magritek 2M
 
 **GUI screenshot**
 
-<img src="gui-screenshot/gui-inv.jpg" width="600">
+<img src="gui-screenshot/gui-inv.JPG" width="800"> 
+
+<img src="gui-screenshot/gui-t2.JPG" width="800">
